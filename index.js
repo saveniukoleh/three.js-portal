@@ -1,6 +1,16 @@
 import * as THREE from "https://cdn.skypack.dev/three@0.128.0";
 import { OrbitControls } from "https://cdn.skypack.dev/three@0.128.0/examples/jsm/controls/OrbitControls.js";
 
+/**
+ * Comments:
+ *  The zero layer is the actual scene, we don't want put 3d object over the object from the first layer, because they are gonna be
+ *  overrides and cropped, we put them on a side or behind so they don't broke the experience
+ *
+ *  The first layer is the Portal, everything related to it is gonna act as portal view
+ *
+ *  The second layer is our second "scene" the objects which we wanna view through the portal, the first layer
+ */
+
 // Setup
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(
@@ -15,9 +25,26 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 const loader = new THREE.TextureLoader();
+let insidePortal = false;
 
 // Scene
 camera.position.z = 5;
+
+const cube = new THREE.Mesh(
+  new THREE.BoxGeometry(),
+  new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+);
+cube.layers.set(2);
+cube.position.set(0, 0, -5);
+cube.name = "green cube";
+scene.add(cube);
+const cube2 = new THREE.Mesh(
+  new THREE.BoxGeometry(),
+  new THREE.MeshBasicMaterial({ color: 0xff0000 })
+);
+cube2.position.set(0, 0, 5);
+cube2.name = "red cube";
+scene.add(cube2);
 
 // Skybox
 const skyboxGeometry = new THREE.BoxGeometry(1000, 1000, 1000);
@@ -52,59 +79,66 @@ const skybox = new THREE.Mesh(skyboxGeometry, materialArray);
 skybox.rotation.y = Math.PI;
 skybox.scale.set(-1, 1, 1);
 skybox.layers.set(2);
+skybox.name = "skybox";
 scene.add(skybox);
 
 // Portal
-let defaultMaterial = new THREE.MeshBasicMaterial({
-  map: loader.load("./assets/sphere-colored.png"),
-  color: 0x444444,
-  side: THREE.DoubleSide,
-  transparent: true,
-  opacity: 0.6,
-});
-
-let portalWidth = 2;
-let portalHeight = 4;
-let portalBorder = 0.1;
-
 const portal = new THREE.Mesh(
-  new THREE.PlaneGeometry(portalWidth, portalHeight),
-  defaultMaterial
+  new THREE.PlaneGeometry(3, 6),
+  new THREE.MeshBasicMaterial({
+    map: loader.load("./assets/sphere-colored.png"),
+    color: 0x444444,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.6,
+  })
 );
 portal.layers.set(1);
+portal.name = "portal";
 scene.add(portal);
 
 // This line from the thing
 camera.layers.enable(1);
 
-// Portal border
-let portalMaterial = new THREE.MeshBasicMaterial({
-  color: 0xffff00,
-  side: THREE.DoubleSide,
-  transparent: true,
-  opacity: 0.75,
-});
-
-let portalBorderMesh = new THREE.Mesh(
-  new THREE.PlaneGeometry(
-    portalWidth + 2 * portalBorder,
-    portalHeight + 2 * portalBorder
-  ),
-  portalMaterial
-);
-portalBorderMesh.position.y = portal.position.y;
-portalBorderMesh.layers.set(0);
-scene.add(portalBorderMesh);
-// const geometry = new THREE.BoxGeometry();
-// const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-// const cube = new THREE.Mesh(geometry, material);
-// scene.add(cube);
-
 // Render
 const animate = function () {
   requestAnimationFrame(animate);
+  checkScene();
   render();
 };
+
+function checkScene() {
+  let newInsidePortal = camera.position.z > 0 ? false : true;
+  console.log(insidePortal);
+  newInsidePortal !== insidePortal ? updateScene(newInsidePortal) : null;
+}
+
+function updateScene(newInsidePortal) {
+  insidePortal = newInsidePortal;
+  //   if (insidePortal) {
+  console.log("1");
+  scene.traverse((object) => {
+    if (object.isMesh) {
+      if (object.layers.mask === 4) {
+        object.layers.set(0);
+      } else if (object.layers.mask === 1) {
+        object.layers.set(2);
+      }
+    }
+  });
+  //   } else {
+  //     console.log("2");
+  //     scene.traverse((object) => {
+  //       if (object.isMesh) {
+  //         if (object.layers.mask === 4) {
+  //           object.layers.set(2);
+  //         } else if (object.layers.mask === 1) {
+  //           object.layers.set(0);
+  //         }
+  //       }
+  //     });
+  //   }
+}
 
 function render() {
   let gl = renderer.getContext("webgl");
