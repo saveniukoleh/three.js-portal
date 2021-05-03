@@ -19,13 +19,14 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   1000
 );
-const raycaster = new THREE.Raycaster();
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 const loader = new THREE.TextureLoader();
 const collidableMeshList = [];
+let readyToGoInside = false;
+let readyToGoOutside = false;
 let insidePortal = false;
 
 // Scene
@@ -104,19 +105,15 @@ const portalHallway = new THREE.Mesh(
   ),
   new THREE.MeshBasicMaterial({ color: "#0000ff" })
 );
+portalHallway.material.visible = false;
+portalHallway.name = "hallway";
+collidableMeshList.push(portalHallway);
 const portal = new THREE.Mesh(
   new THREE.PlaneGeometry(portalSize.width, portalSize.heigh),
   new THREE.MeshBasicMaterial({
-    map: loader.load("./assets/sphere-colored.png"),
-    color: 0x444444,
     side: THREE.DoubleSide,
-    transparent: true,
-    opacity: 0.6,
   })
 );
-portalHallway.material.visible = true;
-portalHallway.name = "hallway";
-collidableMeshList.push(portalHallway);
 portal.add(portalHallway);
 portal.layers.set(1);
 portal.name = "portal";
@@ -129,32 +126,64 @@ camera.layers.enable(1);
 const animate = function () {
   requestAnimationFrame(animate);
   checkIntersection();
-  checkScene();
   render();
 };
 
 function checkIntersection() {
   const generalIntersection = detectCollisionCubes(cameraCube, portalHallway);
-  console.log(generalIntersection);
-}
+  const cameraCubePosition = cameraCube.localToWorld(new THREE.Vector3());
 
-function checkScene() {
-  let newInsidePortal = camera.position.z > 0 ? false : true;
-  if (newInsidePortal !== insidePortal) {
-    insidePortal = newInsidePortal;
-    scene.traverse((object) => {
-      if (object.isMesh) {
-        if (object.layers.mask === 4) {
-          object.layers.set(0);
-        } else if (object.layers.mask === 1) {
-          object.layers.set(2);
-        }
-      }
-    });
+  // Entry point
+  if (
+    generalIntersection &&
+    !insidePortal &&
+    readyToGoInside &&
+    cameraCubePosition.z < 0
+  ) {
+    insidePortal = true;
+    changeLayers();
+  }
+
+  // Exit point
+  if (
+    generalIntersection &&
+    insidePortal &&
+    readyToGoOutside &&
+    cameraCubePosition.z > 0
+  ) {
+    insidePortal = false;
+    changeLayers();
+  }
+
+  // Update entry hallway check
+  if (generalIntersection && !insidePortal && cameraCubePosition.z > 0) {
+    readyToGoInside = true;
+  } else {
+    readyToGoInside = false;
+  }
+
+  // Update exit hallway check
+  if (generalIntersection && insidePortal && cameraCubePosition.z < 0) {
+    readyToGoOutside = true;
+  } else {
+    readyToGoOutside = false;
   }
 }
+
+function changeLayers() {
+  scene.traverse((object) => {
+    if (object.isMesh) {
+      if (object.layers.mask === 4) {
+        object.layers.set(0);
+      } else if (object.layers.mask === 1) {
+        object.layers.set(2);
+      }
+    }
+  });
+}
+
 function detectCollisionCubes(object1, object2) {
-  object1.geometry.computeBoundingBox(); //not needed if its already calculated
+  object1.geometry.computeBoundingBox();
   object2.geometry.computeBoundingBox();
   object1.updateMatrixWorld();
   object2.updateMatrixWorld();
