@@ -34,8 +34,9 @@ camera.position.z = 5;
 const cameraCubeSide = 0.001;
 const cameraCube = new THREE.Mesh(
   new THREE.BoxGeometry(cameraCubeSide, cameraCubeSide, cameraCubeSide),
-  new THREE.MeshBasicMaterial({ color: 0x00ffff })
+  new THREE.MeshBasicMaterial()
 );
+cameraCube.visible = false;
 cameraCube.name = "camera cube";
 camera.add(cameraCube);
 
