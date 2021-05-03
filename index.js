@@ -1,15 +1,10 @@
 import * as THREE from "https://cdn.skypack.dev/three@0.128.0";
 import { OrbitControls } from "https://cdn.skypack.dev/three@0.128.0/examples/jsm/controls/OrbitControls.js";
 
+// Setup
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(
-  75,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  1000
-);
-const textureCamera = new THREE.PerspectiveCamera(
-  75,
+  70,
   window.innerWidth / window.innerHeight,
   0.1,
   1000
@@ -17,142 +12,72 @@ const textureCamera = new THREE.PerspectiveCamera(
 
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.autoClear = false;
 document.body.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.update();
 
-// const finalRenderTarget = new THREE.WebGLRenderTarget(
-//   window.innerWidth,
-//   window.innerHeight,
-//   {
-//     minFilter: THREE.LinearFilter,
-//     magFilter: THREE.LinearFilter,
-//     format: THREE.RGBFormat,
-//   }
-// );
-// const geometry = new THREE.PlaneGeometry(2, 2);
-// const material = new THREE.MeshBasicMaterial({
-//   map: finalRenderTarget,
-// });
-// const plane = new THREE.Mesh(geometry, material);
-// scene.add(plane);
-
-const renderTarget = new THREE.WebGLRenderTarget(
-  window.innerWidth,
-  window.innerHeight,
-  {
-    minFilter: THREE.LinearFilter,
-    magFilter: THREE.LinearFilter,
-    format: THREE.RGBFormat,
-  }
-);
-
-var planelikeGeometry = new THREE.PlaneGeometry(4, 2);
-var plane = new THREE.Mesh(
-  planelikeGeometry,
-  new THREE.MeshBasicMaterial({ map: renderTarget })
-);
-scene.add(plane);
+const loader = new THREE.TextureLoader();
 
 camera.position.z = 5;
 
-const loader = new THREE.TextureLoader();
-const texture = loader.load("./assets/Makerspace.jpg", () => {
-  const rt = new THREE.WebGLCubeRenderTarget(texture.image.height);
-  rt.fromEquirectangularTexture(renderer, texture);
-  scene.background = rt.texture;
+// Scene
+
+const geometry = new THREE.BoxGeometry(1000, 1000, 1000);
+const materialArrayOptionSide = THREE.BackSide;
+const materialArray = [
+  new THREE.MeshBasicMaterial({
+    map: loader.load("./assets/1028/px.png"),
+    side: materialArrayOptionSide,
+  }),
+  new THREE.MeshBasicMaterial({
+    map: loader.load("./assets/1028/nx.png"),
+    side: materialArrayOptionSide,
+  }),
+  new THREE.MeshBasicMaterial({
+    map: loader.load("./assets/1028/py.png"),
+    side: materialArrayOptionSide,
+  }),
+  new THREE.MeshBasicMaterial({
+    map: loader.load("./assets/1028/ny.png"),
+    side: materialArrayOptionSide,
+  }),
+  new THREE.MeshBasicMaterial({
+    map: loader.load("./assets/1028/pz.png"),
+    side: materialArrayOptionSide,
+  }),
+  new THREE.MeshBasicMaterial({
+    map: loader.load("./assets/1028/nz.png"),
+    side: materialArrayOptionSide,
+  }),
+];
+const cube = new THREE.Mesh(geometry, materialArray);
+cube.rotation.y = Math.PI;
+cube.scale.set(-1, 1, 1);
+scene.add(cube);
+
+const geometry1 = new THREE.BoxGeometry();
+const material1 = new THREE.MeshBasicMaterial({
+  color: 0x00ff00,
+  // side: THREE.FrontSide,
 });
+const cube1 = new THREE.Mesh(geometry1, material1);
+scene.add(cube1);
+
+// Animate
 
 const animate = function () {
   requestAnimationFrame(animate);
   update();
   render();
 };
-// window.addEventListener("resize", onWindowResize, false);
-
-// function onWindowResize() {
-//   camera.aspect = window.innerWidth / window.innerHeight;
-//   camera.updateProjectionMatrix();
-
-//   renderer.setSize(window.innerWidth, window.innerHeight);
-// }
 
 function update() {
-  var relativeCameraOffset = new THREE.Vector3(0, 0, 0);
-  var cameraOffset = camera.matrixWorld.multiplyVector3(relativeCameraOffset);
-  textureCamera.position.x = cameraOffset.x;
-  textureCamera.position.y = cameraOffset.y;
-  textureCamera.position.z = cameraOffset.z;
-  var relativeCameraLookOffset = new THREE.Vector3(0, 0, -1);
-  var cameraLookOffset = relativeCameraLookOffset.applyMatrix4(
-    camera.matrixWorld
-  );
-  textureCamera.lookAt(cameraLookOffset);
-  console.log(cameraLookOffset);
+  controls.update();
 }
 
 function render() {
-  const SCREEN_WIDTH = window.innerWidth;
-  const SCREEN_HEIGHT = window.innerHeight;
-  //   renderer.render(scene, textureCamera, firstRenderTarget, true);
-  //   renderer.render(screenScene, screenCamera, finalRenderTarget, true);
-  //   renderer.render(scene, camera, finalRenderTarget, true);
-  //   renderer.render(screenScene, screenCamera);
-  //   renderer.render(scene, camera);
-  //   renderer.setViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-  //   renderer.clear();
-
-  // left side
-  renderer.setRenderTarget(null);
-  renderer.setViewport(1, 1, 0.5 * SCREEN_WIDTH, SCREEN_HEIGHT);
   renderer.render(scene, camera);
-
-  // right side
-  renderer.setRenderTarget(renderTarget);
-  renderer.setViewport(
-    0.5 * SCREEN_WIDTH,
-    1,
-    0.5 * SCREEN_WIDTH,
-    SCREEN_HEIGHT
-  );
-  renderer.render(scene, textureCamera);
 }
-
-const screenScene = new THREE.Scene();
-
-const screenCamera = new THREE.OrthographicCamera(
-  window.innerWidth / -2,
-  window.innerWidth / 2,
-  window.innerHeight / 2,
-  window.innerHeight / -2,
-  -10000,
-  10000
-);
-screenCamera.position.z = 1;
-screenScene.add(screenCamera);
-
-const screenGeometry = new THREE.PlaneGeometry(
-  window.innerWidth,
-  window.innerHeight
-);
-
-const firstRenderTarget = new THREE.WebGLRenderTarget(
-  window.innerWidth,
-  window.innerHeight,
-  {
-    minFilter: THREE.LinearFilter,
-    magFilter: THREE.LinearFilter,
-    format: THREE.RGBFormat,
-  }
-);
-const screenMaterial = new THREE.MeshBasicMaterial({
-  color: "#ff0000",
-  //   map: firstRenderTarget,
-});
-
-const quad = new THREE.Mesh(screenGeometry, screenMaterial);
-screenCamera.add(quad);
 
 animate();
