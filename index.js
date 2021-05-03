@@ -9,26 +9,18 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   1000
 );
-const secondCamera = new THREE.PerspectiveCamera(
-  75,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  1000
-);
 
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
-
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.update();
-
 const loader = new THREE.TextureLoader();
 
-camera.position.z = 0.5;
-
 // Scene
-const geometry = new THREE.BoxGeometry(1000, 1000, 1000);
+camera.position.z = 5;
+
+// Skybox
+const skyboxGeometry = new THREE.BoxGeometry(1000, 1000, 1000);
 const materialArrayOptionSide = THREE.BackSide;
 const materialArray = [
   new THREE.MeshBasicMaterial({
@@ -56,163 +48,118 @@ const materialArray = [
     side: materialArrayOptionSide,
   }),
 ];
-const cube = new THREE.Mesh(geometry, materialArray);
-cube.rotation.y = Math.PI;
-cube.scale.set(-1, 1, 1);
-cube.layers.set(2);
-scene.add(cube);
+const skybox = new THREE.Mesh(skyboxGeometry, materialArray);
+skybox.rotation.y = Math.PI;
+skybox.scale.set(-1, 1, 1);
+skybox.layers.set(2);
+scene.add(skybox);
 
-const geometry1 = new THREE.PlaneGeometry(0.3, 0.6);
-const material1 = new THREE.MeshBasicMaterial({
-  color: 0x00ff00,
+// Portal
+let defaultMaterial = new THREE.MeshBasicMaterial({
+  map: loader.load("./assets/sphere-colored.png"),
+  color: 0x444444,
+  side: THREE.DoubleSide,
   transparent: true,
-  opacity: 0.5,
-  side: 2,
+  opacity: 0.6,
 });
-const cube1 = new THREE.Mesh(geometry1, material1);
-cube1.layers.set(2);
-scene.add(cube1);
 
-const cubeHelp = new THREE.Mesh(
-  new THREE.BoxGeometry(10, 10),
-  new THREE.MeshBasicMaterial({
-    color: 0x00ff00,
-    transparent: true,
-    opacity: 0.5,
-    side: 2,
-  })
+let portalWidth = 2;
+let portalHeight = 4;
+let portalBorder = 0.1;
+
+const portal = new THREE.Mesh(
+  new THREE.PlaneGeometry(portalWidth, portalHeight),
+  defaultMaterial
 );
-cubeHelp.layers.set(0);
-// scene.add(cubeHelp);
+portal.layers.set(1);
+scene.add(portal);
 
-const cube2 = new THREE.Mesh(
-  new THREE.PlaneGeometry(0.3, 0.6),
-  new THREE.MeshBasicMaterial({
-    color: 0xff0000,
-    transparent: true,
-    opacity: 0.5,
-    side: 2,
-  })
+// This line from the thing
+camera.layers.enable(1);
+
+// Portal border
+let portalMaterial = new THREE.MeshBasicMaterial({
+  color: 0xffff00,
+  side: THREE.DoubleSide,
+  transparent: true,
+  opacity: 0.75,
+});
+
+let portalBorderMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(
+    portalWidth + 2 * portalBorder,
+    portalHeight + 2 * portalBorder
+  ),
+  portalMaterial
 );
-cube2.layers.set(2);
-scene.add(cube2);
+portalBorderMesh.position.y = portal.position.y;
+portalBorderMesh.layers.set(0);
+scene.add(portalBorderMesh);
+// const geometry = new THREE.BoxGeometry();
+// const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+// const cube = new THREE.Mesh(geometry, material);
+// scene.add(cube);
 
-// Animate
-
+// Render
 const animate = function () {
   requestAnimationFrame(animate);
-  update();
   render();
 };
 
-function update() {
-  secondCamera.position.copy(camera.position);
-  secondCamera.quaternion.copy(camera.quaternion);
-  controls.update();
-}
-
 function render() {
-  let scenario = 0;
+  //   renderer.render(scene, camera);
+  //   return;
+  let gl = renderer.getContext("webgl");
 
-  if (scenario === 0) {
-    secondCamera.layers.enable(0);
-    secondCamera.layers.enable(2);
-    renderer.render(scene, secondCamera);
-  } else if (scenario === 1) {
-    camera.layers.enable(0);
-    camera.layers.enable(1);
-    renderer.render(scene, camera);
-  } else if (scenario === 2) {
-    let gl = renderer.getContext("webgl");
+  // clear buffers now: color, depth, stencil
+  renderer.clear(true, true, true);
+  // do not clear buffers before each render pass
+  renderer.autoClear = false;
 
-    // clear buffers now: color, depth, stencil
-    renderer.clear(true, true, true);
-    // do not clear buffers before each render pass
-    renderer.autoClear = false;
+  // FIRST PASS
+  // goal: using the stencil buffer, place 1's in position of first portal (layer 1)
 
-    // FIRST PASS
-    // goal: using the stencil buffer, place 1's in position of first portal
+  // enable the stencil buffer
+  gl.enable(gl.STENCIL_TEST);
 
-    // enable the stencil buffer
-    gl.enable(gl.STENCIL_TEST);
-    camera.layers.set(1);
+  // layer 1 contains only the first portal
+  camera.layers.set(1);
 
-    gl.stencilFunc(gl.ALWAYS, 1, 0xff);
-    gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
-    gl.stencilMask(0xff);
+  gl.stencilFunc(gl.ALWAYS, 1, 0xff);
+  gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+  gl.stencilMask(0xff);
 
-    // only write to stencil buffer (not color or depth)
-    gl.colorMask(false, false, false, false);
-    gl.depthMask(false);
+  // only write to stencil buffer (not color or depth)
+  gl.colorMask(false, false, false, false);
+  gl.depthMask(false);
 
-    renderer.render(scene, camera);
+  renderer.render(scene, camera);
 
-    // SECOND PASS
-    // goal: draw from the portal camera perspective (which is aligned relative to the second portal)
-    //   in the first portal region (set by the stencil in the previous pass)
+  // SECOND PASS
+  // goal: render skybox (layer 2) but only through portal
 
-    // set up a clipping plane, so that portal camera does not see anything between
-    //   the portal camera and the second portal
+  gl.colorMask(true, true, true, true);
+  gl.depthMask(true);
 
-    // default normal of a plane is 0,0,1. apply mesh rotation to it.
+  gl.stencilFunc(gl.EQUAL, 1, 0xff);
+  gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
 
-    // determine which side of the plane camera is on, for clipping plane orientation.
-    let portalToCamera = new THREE.Vector3().subVectors(
-      camera.position.clone(),
-      cube1.position.clone()
-    );
-    let normalPortal = new THREE.Vector3(0, 0, 1).applyQuaternion(
-      cube1.quaternion
-    );
-    let clipSide = -Math.sign(portalToCamera.dot(normalPortal));
+  camera.layers.set(2);
+  renderer.render(scene, camera);
 
-    let clipNormal = new THREE.Vector3(0, 0, clipSide).applyQuaternion(
-      cube2.quaternion
-    );
-    let clipPoint = cube2.position;
-    let clipPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(
-      clipNormal,
-      clipPoint
-    );
-    renderer.clippingPlanes = [clipPlane];
+  // FINAL PASS
+  // goal: render the rest of the scene (layer 0)
 
-    gl.colorMask(true, true, true, true);
-    gl.depthMask(true);
+  // using stencil buffer simplifies drawing border around portal
+  gl.stencilFunc(gl.NOTEQUAL, 1, 0xff);
+  gl.colorMask(true, true, true, true);
+  gl.depthMask(true);
 
-    gl.stencilFunc(gl.EQUAL, 1, 0xff);
-    gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+  camera.layers.set(0); // layer 0 contains portal border mesh
+  renderer.render(scene, camera);
 
-    secondCamera.layers.set(2);
-    renderer.render(scene, secondCamera);
-
-    // disable clipping planes
-    renderer.clippingPlanes = [];
-
-    // THIRD PASS
-    // goal: set the depth buffer data for the first portal,
-    //   so that it can be occluded by other objects
-
-    // finished with stencil
-    gl.disable(gl.STENCIL_TEST);
-
-    gl.colorMask(false, false, false, false);
-    gl.depthMask(true);
-    // need to clear the depth buffer, in case of occlusion
-    renderer.clear(false, true, false);
-    renderer.render(scene, camera);
-
-    // FINAL PASS
-    // goal: draw the rest of the scene
-
-    gl.colorMask(true, true, true, true);
-    gl.depthMask(true);
-
-    camera.layers.set(0); // layer 0 contains everything but portals
-    renderer.render(scene, camera);
-
-    // set things back to normal
-    renderer.autoClear = true;
-  }
+  // set things back to normal
+  renderer.autoClear = true;
 }
 
 animate();
