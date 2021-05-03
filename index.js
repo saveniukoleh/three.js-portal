@@ -19,16 +19,24 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   1000
 );
-
+const raycaster = new THREE.Raycaster();
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 const loader = new THREE.TextureLoader();
+const collidableMeshList = [];
 let insidePortal = false;
 
 // Scene
 camera.position.z = 5;
+const cameraCubeSide = 0.001;
+const cameraCube = new THREE.Mesh(
+  new THREE.BoxGeometry(cameraCubeSide, cameraCubeSide, cameraCubeSide),
+  new THREE.MeshBasicMaterial({ color: 0x00ffff })
+);
+cameraCube.name = "camera cube";
+camera.add(cameraCube);
 
 const cube = new THREE.Mesh(
   new THREE.BoxGeometry(),
@@ -38,6 +46,7 @@ cube.layers.set(2);
 cube.position.set(0, 0, -5);
 cube.name = "green cube";
 scene.add(cube);
+
 const cube2 = new THREE.Mesh(
   new THREE.BoxGeometry(),
   new THREE.MeshBasicMaterial({ color: 0xff0000 })
@@ -83,8 +92,20 @@ skybox.name = "skybox";
 scene.add(skybox);
 
 // Portal
+const portalSize = {
+  width: 3,
+  heigh: 6,
+};
+const portalHallway = new THREE.Mesh(
+  new THREE.BoxGeometry(
+    portalSize.width,
+    portalSize.heigh,
+    portalSize.width * 2
+  ),
+  new THREE.MeshBasicMaterial({ color: "#0000ff" })
+);
 const portal = new THREE.Mesh(
-  new THREE.PlaneGeometry(3, 6),
+  new THREE.PlaneGeometry(portalSize.width, portalSize.heigh),
   new THREE.MeshBasicMaterial({
     map: loader.load("./assets/sphere-colored.png"),
     color: 0x444444,
@@ -93,6 +114,10 @@ const portal = new THREE.Mesh(
     opacity: 0.6,
   })
 );
+portalHallway.material.visible = true;
+portalHallway.name = "hallway";
+collidableMeshList.push(portalHallway);
+portal.add(portalHallway);
 portal.layers.set(1);
 portal.name = "portal";
 scene.add(portal);
@@ -103,9 +128,15 @@ camera.layers.enable(1);
 // Render
 const animate = function () {
   requestAnimationFrame(animate);
+  checkIntersection();
   checkScene();
   render();
 };
+
+function checkIntersection() {
+  const generalIntersection = detectCollisionCubes(cameraCube, portalHallway);
+  console.log(generalIntersection);
+}
 
 function checkScene() {
   let newInsidePortal = camera.position.z > 0 ? false : true;
@@ -121,6 +152,20 @@ function checkScene() {
       }
     });
   }
+}
+function detectCollisionCubes(object1, object2) {
+  object1.geometry.computeBoundingBox(); //not needed if its already calculated
+  object2.geometry.computeBoundingBox();
+  object1.updateMatrixWorld();
+  object2.updateMatrixWorld();
+
+  const box1 = object1.geometry.boundingBox.clone();
+  box1.applyMatrix4(object1.matrixWorld);
+
+  const box2 = object2.geometry.boundingBox.clone();
+  box2.applyMatrix4(object2.matrixWorld);
+
+  return box1.intersectsBox(box2);
 }
 
 function render() {
@@ -175,6 +220,15 @@ function render() {
 
   // set things back to normal
   renderer.autoClear = true;
+}
+
+window.addEventListener("resize", onWindowResize, false);
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+
+  renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
 animate();
