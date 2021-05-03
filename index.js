@@ -109,35 +109,18 @@ const animate = function () {
 
 function checkScene() {
   let newInsidePortal = camera.position.z > 0 ? false : true;
-  console.log(insidePortal);
-  newInsidePortal !== insidePortal ? updateScene(newInsidePortal) : null;
-}
-
-function updateScene(newInsidePortal) {
-  insidePortal = newInsidePortal;
-  //   if (insidePortal) {
-  console.log("1");
-  scene.traverse((object) => {
-    if (object.isMesh) {
-      if (object.layers.mask === 4) {
-        object.layers.set(0);
-      } else if (object.layers.mask === 1) {
-        object.layers.set(2);
+  if (newInsidePortal !== insidePortal) {
+    insidePortal = newInsidePortal;
+    scene.traverse((object) => {
+      if (object.isMesh) {
+        if (object.layers.mask === 4) {
+          object.layers.set(0);
+        } else if (object.layers.mask === 1) {
+          object.layers.set(2);
+        }
       }
-    }
-  });
-  //   } else {
-  //     console.log("2");
-  //     scene.traverse((object) => {
-  //       if (object.isMesh) {
-  //         if (object.layers.mask === 4) {
-  //           object.layers.set(2);
-  //         } else if (object.layers.mask === 1) {
-  //           object.layers.set(0);
-  //         }
-  //       }
-  //     });
-  //   }
+    });
+  }
 }
 
 function render() {
