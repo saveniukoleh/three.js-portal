@@ -107,8 +107,6 @@ const animate = function () {
 };
 
 function render() {
-  //   renderer.render(scene, camera);
-  //   return;
   let gl = renderer.getContext("webgl");
 
   // clear buffers now: color, depth, stencil
