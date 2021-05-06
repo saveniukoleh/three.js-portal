@@ -20,6 +20,7 @@ const camera = new THREE.PerspectiveCamera(
   1000
 );
 const renderer = new THREE.WebGLRenderer();
+renderer.autoClear = false;
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -200,56 +201,27 @@ function detectCollisionCubes(object1, object2) {
 
 function render() {
   let gl = renderer.getContext("webgl");
+  renderer.clearDepth();
 
-  // clear buffers now: color, depth, stencil
-  renderer.clear(true, true, true);
-  // do not clear buffers before each render pass
-  renderer.autoClear = false;
-
-  // FIRST PASS
-  // goal: using the stencil buffer, place 1's in position of first portal (layer 1)
-
-  // enable the stencil buffer
   gl.enable(gl.STENCIL_TEST);
-
-  // layer 1 contains only the first portal
-  camera.layers.set(1);
-
   gl.stencilFunc(gl.ALWAYS, 1, 0xff);
+  // gl.stencilOp(gl.KEEP, gl.REPLACE, gl.REPLACE);
   gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
-  gl.stencilMask(0xff);
 
-  // only write to stencil buffer (not color or depth)
   gl.colorMask(false, false, false, false);
   gl.depthMask(false);
-
+  camera.layers.set(1);
   renderer.render(scene, camera);
-
-  // SECOND PASS
-  // goal: render skybox (layer 2) but only through portal
-
   gl.colorMask(true, true, true, true);
   gl.depthMask(true);
 
   gl.stencilFunc(gl.EQUAL, 1, 0xff);
-  gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
-
   camera.layers.set(2);
   renderer.render(scene, camera);
 
-  // FINAL PASS
-  // goal: render the rest of the scene (layer 0)
-
-  // using stencil buffer simplifies drawing border around portal
   gl.stencilFunc(gl.NOTEQUAL, 1, 0xff);
-  gl.colorMask(true, true, true, true);
-  gl.depthMask(true);
-
-  camera.layers.set(0); // layer 0 contains portal border mesh
+  camera.layers.set(0);
   renderer.render(scene, camera);
-
-  // set things back to normal
-  renderer.autoClear = true;
 }
 
 window.addEventListener("resize", onWindowResize, false);
