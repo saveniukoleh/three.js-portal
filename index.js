@@ -56,7 +56,7 @@ const cube2 = new THREE.Mesh(
 );
 cube2.position.set(0, 0, 5);
 cube2.name = "red cube";
-scene.add(cube2);
+// scene.add(cube2);
 
 // Skybox
 const skyboxGeometry = new THREE.BoxGeometry(1000, 1000, 1000);
